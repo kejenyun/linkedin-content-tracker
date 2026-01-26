@@ -812,13 +812,14 @@ What's stopping you from making this change?
                             autoFocus
                           />
                         ) : (
-                          <span
-                            className="font-medium text-gray-900 cursor-pointer hover:text-blue-600"
+                          <button
+                            className="font-medium text-gray-900 hover:text-blue-600 flex items-center gap-1 hover:bg-blue-50 px-2 py-1 rounded"
                             onClick={() => setEditingSchedule(post.id)}
-                            title="Click to edit schedule"
+                            title="Click to change scheduled time"
                           >
                             {new Date(post.scheduledFor).toLocaleString()}
-                          </span>
+                            <Icon name="pencil" size={14} className="text-gray-400" />
+                          </button>
                         )}
                         <span className="px-2 py-1 text-xs rounded-full text-blue-600 bg-blue-100">
                           scheduled
