@@ -645,18 +645,28 @@ What's stopping you from making this change?
               <div>
                 <h3 className="text-lg font-semibold mb-4">Generated Post</h3>
                 {selectedIdea && (
-                  <div className="flex space-x-2 mb-4">
+                  <div className="flex flex-wrap gap-2 mb-4">
+                    <button
+                      onClick={async () => {
+                        const textToCopy = generatedPost || selectedIdea.content;
+                        await navigator.clipboard.writeText(textToCopy);
+                        window.open('https://chatgpt.com/g/g-6908d687d11481918abd72411e110dde-social-post-polisher', '_blank');
+                      }}
+                      className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors"
+                    >
+                      Polish with GPT
+                    </button>
                     <button
                       onClick={() => generatePost(selectedIdea)}
                       className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
                     >
-                      Generate New Version
+                      Quick Template
                     </button>
                     <button
                       onClick={() => setGeneratedPost('')}
                       className="bg-gray-500 text-white px-4 py-2 rounded-lg hover:bg-gray-600 transition-colors"
                     >
-                      Write from Scratch
+                      Clear
                     </button>
                   </div>
                 )}
