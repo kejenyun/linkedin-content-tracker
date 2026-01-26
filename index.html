@@ -400,7 +400,7 @@ What's stopping you from making this change?
                     value={newIdea}
                     onChange={(e) => setNewIdea(e.target.value)}
                     placeholder="What's your idea? Could be a rough thought, observation, or experience you want to share..."
-                    className="w-full h-32 p-3 border border-gray-300 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full h-48 p-3 border border-gray-300 rounded-lg resize-y focus:outline-none focus:ring-2 focus:ring-blue-500"
                     onKeyPress={(e) => {
                       if (e.key === 'Enter' && e.metaKey) {
                         addIdea();
