@@ -51,13 +51,25 @@
       const [postedIdeas, setPostedIdeas] = useState([]);
       const [postedCategoryFilter, setPostedCategoryFilter] = useState('All');
       const [expandedPostedIdea, setExpandedPostedIdea] = useState(null);
+      const [audienceFilter, setAudienceFilter] = useState('All');
+      const [showSettings, setShowSettings] = useState(false);
+      const [newTopic, setNewTopic] = useState('');
+      const [newAudience, setNewAudience] = useState('');
 
-      const categories = ['User Pain Points', 'Market Trend', 'Good Practices', 'Professional Insights', 'Random'];
+      const defaultTopics = ['User Pain Points', 'Market Trend', 'Good Practices', 'Professional Insights', 'Random'];
+      const defaultAudiences = ['Currently Unemployed', 'Employed & Seeking', 'Career Changers', 'General'];
+
+      const [topics, setTopics] = useState(defaultTopics);
+      const [audiences, setAudiences] = useState(defaultAudiences);
+
+      const categories = topics;
 
       const activeIdeas = ideas.filter(idea => idea.status !== 'posted');
-      const filteredIdeas = categoryFilter === 'All'
-        ? activeIdeas
-        : activeIdeas.filter(idea => idea.category === categoryFilter);
+      const filteredIdeas = activeIdeas.filter(idea => {
+        const matchesCategory = categoryFilter === 'All' || idea.category === categoryFilter;
+        const matchesAudience = audienceFilter === 'All' || idea.audience === audienceFilter;
+        return matchesCategory && matchesAudience;
+      });
 
       const starredIdeas = activeIdeas.filter(idea => idea.starred);
       const activeScheduledPosts = scheduledPosts.filter(post => post.status !== 'posted');
@@ -70,10 +82,14 @@
         const savedIdeas = localStorage.getItem('linkedin-ideas');
         const savedPosts = localStorage.getItem('linkedin-scheduled');
         const savedPostedIdeas = localStorage.getItem('linkedin-posted-ideas');
+        const savedTopics = localStorage.getItem('linkedin-topics');
+        const savedAudiences = localStorage.getItem('linkedin-audiences');
 
         if (savedIdeas) setIdeas(JSON.parse(savedIdeas));
         if (savedPosts) setScheduledPosts(JSON.parse(savedPosts));
         if (savedPostedIdeas) setPostedIdeas(JSON.parse(savedPostedIdeas));
+        if (savedTopics) setTopics(JSON.parse(savedTopics));
+        if (savedAudiences) setAudiences(JSON.parse(savedAudiences));
       }, []);
 
       // Save data to localStorage
@@ -89,12 +105,53 @@
         localStorage.setItem('linkedin-posted-ideas', JSON.stringify(postedIdeas));
       }, [postedIdeas]);
 
+      useEffect(() => {
+        localStorage.setItem('linkedin-topics', JSON.stringify(topics));
+      }, [topics]);
+
+      useEffect(() => {
+        localStorage.setItem('linkedin-audiences', JSON.stringify(audiences));
+      }, [audiences]);
+
+      const addTopic = () => {
+        if (newTopic.trim() && !topics.includes(newTopic.trim())) {
+          setTopics([...topics, newTopic.trim()]);
+          setNewTopic('');
+        }
+      };
+
+      const deleteTopic = (topic) => {
+        if (topics.length > 1) {
+          setTopics(topics.filter(t => t !== topic));
+        }
+      };
+
+      const addAudience = () => {
+        if (newAudience.trim() && !audiences.includes(newAudience.trim())) {
+          setAudiences([...audiences, newAudience.trim()]);
+          setNewAudience('');
+        }
+      };
+
+      const deleteAudience = (audience) => {
+        if (audiences.length > 1) {
+          setAudiences(audiences.filter(a => a !== audience));
+        }
+      };
+
+      const updateIdeaAudience = (id, audience) => {
+        setIdeas(ideas.map(idea =>
+          idea.id === id ? { ...idea, audience: audience } : idea
+        ));
+      };
+
       const addIdea = () => {
         if (newIdea.trim()) {
           const idea = {
             id: Date.now(),
             content: newIdea,
-            category: 'Random',
+            category: topics[0] || 'Random',
+            audience: audiences[0] || 'General',
             status: 'idea',
             createdAt: new Date().toISOString(),
             draft: '',
@@ -343,6 +400,12 @@ What's stopping you from making this change?
               </div>
               <div className="flex items-center space-x-2">
                 <button
+                  onClick={() => setShowSettings(true)}
+                  className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 text-sm"
+                >
+                  Settings
+                </button>
+                <button
                   onClick={exportData}
                   className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm"
                 >
@@ -420,17 +483,29 @@ What's stopping you from making this change?
               <div>
                 <div className="flex justify-between items-center mb-4 flex-wrap gap-2">
                   <h3 className="text-lg font-semibold">Your Active Ideas ({filteredIdeas.length})</h3>
-                  <div className="flex items-center space-x-2">
+                  <div className="flex items-center space-x-2 flex-wrap gap-2">
                     <span className="text-sm text-gray-600">Filter:</span>
                     <select
                       value={categoryFilter}
                       onChange={(e) => setCategoryFilter(e.target.value)}
                       className="px-3 py-1 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                     >
-                      <option value="All">All Categories ({activeIdeas.length})</option>
+                      <option value="All">All Topics ({activeIdeas.length})</option>
                       {categories.map(category => (
                         <option key={category} value={category}>
                           {category} ({activeIdeas.filter(idea => idea.category === category).length})
+                        </option>
+                      ))}
+                    </select>
+                    <select
+                      value={audienceFilter}
+                      onChange={(e) => setAudienceFilter(e.target.value)}
+                      className="px-3 py-1 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="All">All Audiences</option>
+                      {audiences.map(audience => (
+                        <option key={audience} value={audience}>
+                          {audience}
                         </option>
                       ))}
                     </select>
@@ -477,7 +552,7 @@ What's stopping you from making this change?
                             Added {new Date(idea.createdAt).toLocaleDateString()}
                           </p>
                         </div>
-                        <div className="flex items-center space-x-2 ml-4 flex-wrap">
+                        <div className="flex items-center space-x-2 ml-4 flex-wrap gap-1">
                           <select
                             value={idea.category}
                             onChange={(e) => updateIdeaPriority(idea.id, e.target.value)}
@@ -485,6 +560,15 @@ What's stopping you from making this change?
                           >
                             {categories.map(category => (
                               <option key={category} value={category}>{category}</option>
+                            ))}
+                          </select>
+                          <select
+                            value={idea.audience || audiences[0]}
+                            onChange={(e) => updateIdeaAudience(idea.id, e.target.value)}
+                            className="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-700"
+                          >
+                            {audiences.map(audience => (
+                              <option key={audience} value={audience}>{audience}</option>
                             ))}
                           </select>
                           <button
@@ -920,6 +1004,104 @@ What's stopping you from making this change?
                     <p className="text-sm mt-2">Ideas will appear here once they're marked as posted.</p>
                   </div>
                 )}
+              </div>
+            </div>
+          )}
+
+          {/* Settings Modal */}
+          {showSettings && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+              <div className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[80vh] overflow-y-auto">
+                <div className="flex justify-between items-center mb-6">
+                  <h2 className="text-xl font-bold">Settings</h2>
+                  <button
+                    onClick={() => setShowSettings(false)}
+                    className="text-gray-500 hover:text-gray-700 text-2xl"
+                  >
+                    ×
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* Topics */}
+                  <div>
+                    <h3 className="font-semibold mb-3">Topics (Content Categories)</h3>
+                    <div className="flex gap-2 mb-3">
+                      <input
+                        type="text"
+                        value={newTopic}
+                        onChange={(e) => setNewTopic(e.target.value)}
+                        placeholder="Add new topic..."
+                        className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                        onKeyPress={(e) => e.key === 'Enter' && addTopic()}
+                      />
+                      <button
+                        onClick={addTopic}
+                        className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm"
+                      >
+                        Add
+                      </button>
+                    </div>
+                    <div className="space-y-2">
+                      {topics.map(topic => (
+                        <div key={topic} className="flex justify-between items-center bg-gray-50 px-3 py-2 rounded">
+                          <span className="text-sm">{topic}</span>
+                          <button
+                            onClick={() => deleteTopic(topic)}
+                            className="text-red-500 hover:text-red-700 text-sm"
+                            disabled={topics.length <= 1}
+                          >
+                            ×
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Audiences */}
+                  <div>
+                    <h3 className="font-semibold mb-3">Audiences (Target Groups)</h3>
+                    <div className="flex gap-2 mb-3">
+                      <input
+                        type="text"
+                        value={newAudience}
+                        onChange={(e) => setNewAudience(e.target.value)}
+                        placeholder="Add new audience..."
+                        className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                        onKeyPress={(e) => e.key === 'Enter' && addAudience()}
+                      />
+                      <button
+                        onClick={addAudience}
+                        className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm"
+                      >
+                        Add
+                      </button>
+                    </div>
+                    <div className="space-y-2">
+                      {audiences.map(audience => (
+                        <div key={audience} className="flex justify-between items-center bg-gray-50 px-3 py-2 rounded">
+                          <span className="text-sm">{audience}</span>
+                          <button
+                            onClick={() => deleteAudience(audience)}
+                            className="text-red-500 hover:text-red-700 text-sm"
+                            disabled={audiences.length <= 1}
+                          >
+                            ×
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-6 flex justify-end">
+                  <button
+                    onClick={() => setShowSettings(false)}
+                    className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
+                  >
+                    Done
+                  </button>
+                </div>
               </div>
             </div>
           )}
