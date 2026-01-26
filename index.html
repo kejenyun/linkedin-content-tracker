@@ -827,7 +827,13 @@ What's stopping you from making this change?
                           scheduled
                         </span>
                       </div>
-                      <div className="flex items-center space-x-2">
+                      <div className="flex items-center space-x-2 flex-wrap gap-1">
+                        <button
+                          onClick={() => setEditingSchedule(post.id)}
+                          className="text-purple-600 hover:text-purple-800 px-2 py-1 text-xs border border-purple-600 rounded hover:bg-purple-50"
+                        >
+                          ✏️ Reschedule
+                        </button>
                         <button
                           onClick={() => moveIdeaBackToQueue(post.id)}
                           className="text-gray-600 hover:text-gray-800 px-2 py-1 text-xs border border-gray-600 rounded hover:bg-gray-50"
