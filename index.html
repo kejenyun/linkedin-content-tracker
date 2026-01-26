@@ -1,0 +1,929 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LinkedIn Content Tracker</title>
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect } = React;
+
+    // Icon components using Lucide
+    const Icon = ({ name, size = 16, className = '' }) => {
+      const ref = React.useRef(null);
+      useEffect(() => {
+        if (ref.current) {
+          ref.current.innerHTML = '';
+          const icon = lucide.createElement(lucide.icons[name]);
+          icon.setAttribute('width', size);
+          icon.setAttribute('height', size);
+          if (className) icon.setAttribute('class', className);
+          ref.current.appendChild(icon);
+        }
+      }, [name, size, className]);
+      return <span ref={ref} style={{ display: 'inline-flex', verticalAlign: 'middle' }} />;
+    };
+
+    const LinkedInContentSystem = () => {
+      const [ideas, setIdeas] = useState([]);
+      const [scheduledPosts, setScheduledPosts] = useState([]);
+      const [newIdea, setNewIdea] = useState('');
+      const [selectedIdea, setSelectedIdea] = useState(null);
+      const [generatedPost, setGeneratedPost] = useState('');
+      const [scheduleDate, setScheduleDate] = useState('');
+      const [activeTab, setActiveTab] = useState('ideas');
+      const [editingPost, setEditingPost] = useState(null);
+      const [editingSchedule, setEditingSchedule] = useState(null);
+      const [expandedIdea, setExpandedIdea] = useState(null);
+      const [categoryFilter, setCategoryFilter] = useState('All');
+      const [editingIdeaContent, setEditingIdeaContent] = useState(null);
+      const [postedIdeas, setPostedIdeas] = useState([]);
+      const [postedCategoryFilter, setPostedCategoryFilter] = useState('All');
+      const [expandedPostedIdea, setExpandedPostedIdea] = useState(null);
+
+      const categories = ['User Pain Points', 'Market Trend', 'Good Practices', 'Professional Insights', 'Random'];
+
+      const activeIdeas = ideas.filter(idea => idea.status !== 'posted');
+      const filteredIdeas = categoryFilter === 'All'
+        ? activeIdeas
+        : activeIdeas.filter(idea => idea.category === categoryFilter);
+
+      const starredIdeas = activeIdeas.filter(idea => idea.starred);
+      const activeScheduledPosts = scheduledPosts.filter(post => post.status !== 'posted');
+      const filteredPostedIdeas = postedCategoryFilter === 'All'
+        ? postedIdeas
+        : postedIdeas.filter(idea => idea.category === postedCategoryFilter);
+
+      // Load data from localStorage
+      useEffect(() => {
+        const savedIdeas = localStorage.getItem('linkedin-ideas');
+        const savedPosts = localStorage.getItem('linkedin-scheduled');
+        const savedPostedIdeas = localStorage.getItem('linkedin-posted-ideas');
+
+        if (savedIdeas) setIdeas(JSON.parse(savedIdeas));
+        if (savedPosts) setScheduledPosts(JSON.parse(savedPosts));
+        if (savedPostedIdeas) setPostedIdeas(JSON.parse(savedPostedIdeas));
+      }, []);
+
+      // Save data to localStorage
+      useEffect(() => {
+        localStorage.setItem('linkedin-ideas', JSON.stringify(ideas));
+      }, [ideas]);
+
+      useEffect(() => {
+        localStorage.setItem('linkedin-scheduled', JSON.stringify(scheduledPosts));
+      }, [scheduledPosts]);
+
+      useEffect(() => {
+        localStorage.setItem('linkedin-posted-ideas', JSON.stringify(postedIdeas));
+      }, [postedIdeas]);
+
+      const addIdea = () => {
+        if (newIdea.trim()) {
+          const idea = {
+            id: Date.now(),
+            content: newIdea,
+            category: 'Random',
+            status: 'idea',
+            createdAt: new Date().toISOString(),
+            draft: '',
+            comments: '',
+            starred: false
+          };
+          setIdeas([idea, ...ideas]);
+          setNewIdea('');
+        }
+      };
+
+      const deleteIdea = (id) => {
+        setIdeas(ideas.filter(idea => idea.id !== id));
+        if (selectedIdea?.id === id) {
+          setSelectedIdea(null);
+          setGeneratedPost('');
+        }
+      };
+
+      const updateIdeaPriority = (id, priority) => {
+        setIdeas(ideas.map(idea =>
+          idea.id === id ? { ...idea, category: priority } : idea
+        ));
+      };
+
+      const toggleStarred = (id) => {
+        setIdeas(ideas.map(idea =>
+          idea.id === id ? { ...idea, starred: !idea.starred } : idea
+        ));
+      };
+
+      const generatePost = (idea) => {
+        setSelectedIdea(idea);
+        setActiveTab('generate');
+
+        const templates = [
+          `${idea.content.split(' ').slice(0, 8).join(' ')}...
+
+Here's what I've learned:
+- [Key insight 1]
+- [Key insight 2]
+- [Key insight 3]
+
+The takeaway?
+${idea.content.split('.')[0]}.
+
+What's been your experience?
+
+#JobSearch #CareerStrategy #AI`,
+
+          `Unpopular opinion:
+${idea.content.split('.')[0]}.
+
+Everyone thinks:
+- [Common misconception]
+- [Another myth]
+
+But the reality is:
+- ${idea.content.split(' ').slice(0, 15).join(' ')}
+- [Supporting point]
+
+Agree or disagree?
+
+#Entrepreneurship #JobSearch #StartupLife`,
+
+          `I just realized something about ${idea.content.split(' ')[0].toLowerCase()}...
+
+${idea.content}
+
+Here's the hard truth:
+Most people won't take action on this.
+
+But if you do:
+- [Benefit 1]
+- [Benefit 2]
+- [Benefit 3]
+
+What's stopping you from making this change?
+
+#CareerAdvice #PersonalGrowth #AI`
+        ];
+
+        const randomTemplate = templates[Math.floor(Math.random() * templates.length)];
+        setGeneratedPost(randomTemplate);
+      };
+
+      const moveIdeaBackToQueue = (postId) => {
+        const post = scheduledPosts.find(p => p.id === postId);
+        if (post) {
+          setIdeas(ideas.map(idea =>
+            idea.id === post.ideaId
+              ? { ...idea, status: 'idea' }
+              : idea
+          ));
+          setScheduledPosts(scheduledPosts.filter(p => p.id !== postId));
+        }
+      };
+
+      const updateIdeaField = (ideaId, field, value) => {
+        setIdeas(ideas.map(idea =>
+          idea.id === ideaId ? { ...idea, [field]: value } : idea
+        ));
+      };
+
+      const schedulePost = () => {
+        if (selectedIdea && generatedPost && scheduleDate) {
+          const scheduledPost = {
+            id: Date.now(),
+            ideaId: selectedIdea.id,
+            content: generatedPost,
+            scheduledFor: scheduleDate,
+            status: 'scheduled',
+            createdAt: new Date().toISOString()
+          };
+
+          setScheduledPosts([...scheduledPosts, scheduledPost]);
+          setIdeas(ideas.map(idea =>
+            idea.id === selectedIdea.id
+              ? { ...idea, status: 'scheduled' }
+              : idea
+          ));
+
+          setSelectedIdea(null);
+          setGeneratedPost('');
+          setScheduleDate('');
+          setActiveTab('scheduled');
+        }
+      };
+
+      const updateScheduledPost = (postId, updates) => {
+        setScheduledPosts(scheduledPosts.map(post =>
+          post.id === postId ? { ...post, ...updates } : post
+        ));
+      };
+
+      const markAsPosted = (postId) => {
+        const post = scheduledPosts.find(p => p.id === postId);
+        if (post) {
+          const originalIdea = ideas.find(idea => idea.id === post.ideaId);
+
+          if (originalIdea) {
+            const postedIdea = {
+              id: Date.now() + Math.random(),
+              originalIdeaId: originalIdea.id,
+              ideaContent: originalIdea.content,
+              category: originalIdea.category,
+              postedContent: post.content,
+              scheduledFor: post.scheduledFor,
+              postedAt: new Date().toISOString(),
+              createdAt: originalIdea.createdAt,
+              draft: originalIdea.draft,
+              comments: originalIdea.comments
+            };
+
+            setPostedIdeas(prev => [postedIdea, ...prev]);
+            setIdeas(ideas.map(idea =>
+              idea.id === originalIdea.id
+                ? { ...idea, status: 'posted' }
+                : idea
+            ));
+          }
+
+          setScheduledPosts(scheduledPosts.filter(p => p.id !== postId));
+        }
+      };
+
+      const deleteScheduledPost = (postId) => {
+        const post = scheduledPosts.find(p => p.id === postId);
+        setScheduledPosts(scheduledPosts.filter(p => p.id !== postId));
+
+        if (post) {
+          setIdeas(ideas.map(idea =>
+            idea.id === post.ideaId
+              ? { ...idea, status: 'idea' }
+              : idea
+          ));
+        }
+      };
+
+      const copyToClipboard = async (text) => {
+        try {
+          await navigator.clipboard.writeText(text);
+          alert('Post copied to clipboard!');
+        } catch (err) {
+          console.error('Failed to copy text: ', err);
+        }
+      };
+
+      const exportData = () => {
+        const data = {
+          ideas: ideas,
+          scheduledPosts: scheduledPosts,
+          postedIdeas: postedIdeas,
+          exportDate: new Date().toISOString(),
+          version: '1.1'
+        };
+
+        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `linkedin-content-backup-${new Date().toISOString().split('T')[0]}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      };
+
+      const importData = (event) => {
+        const file = event.target.files[0];
+        if (file) {
+          const reader = new FileReader();
+          reader.onload = (e) => {
+            try {
+              const data = JSON.parse(e.target.result);
+              if (data.ideas) setIdeas(data.ideas);
+              if (data.scheduledPosts) setScheduledPosts(data.scheduledPosts);
+              if (data.postedIdeas) setPostedIdeas(data.postedIdeas);
+              alert('Data imported successfully!');
+            } catch (error) {
+              alert('Error importing data: ' + error.message);
+            }
+          };
+          reader.readAsText(file);
+        }
+      };
+
+      const getPriorityColor = (category) => {
+        switch(category) {
+          case 'User Pain Points': return 'text-red-700 bg-red-100';
+          case 'Market Trend': return 'text-blue-700 bg-blue-100';
+          case 'Good Practices': return 'text-green-700 bg-green-100';
+          case 'Professional Insights': return 'text-purple-700 bg-purple-100';
+          case 'Random': return 'text-gray-700 bg-gray-100';
+          default: return 'text-gray-600 bg-gray-100';
+        }
+      };
+
+      return (
+        <div className="max-w-6xl mx-auto p-6 bg-white min-h-screen">
+          <div className="mb-8">
+            <div className="flex justify-between items-center flex-wrap gap-4">
+              <div>
+                <h1 className="text-3xl font-bold text-gray-900 mb-2">LinkedIn Content Tracker</h1>
+                <p className="text-gray-600">Capture ideas → Generate posts → Schedule publishing</p>
+              </div>
+              <div className="flex items-center space-x-2">
+                <button
+                  onClick={exportData}
+                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm"
+                >
+                  Export Backup
+                </button>
+                <label className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 cursor-pointer text-sm">
+                  Import Backup
+                  <input
+                    type="file"
+                    accept=".json"
+                    onChange={importData}
+                    className="hidden"
+                  />
+                </label>
+              </div>
+            </div>
+          </div>
+
+          {/* Navigation Tabs */}
+          <div className="flex space-x-1 mb-6 flex-wrap gap-2">
+            {[
+              { id: 'ideas', label: 'Ideas Bank', icon: 'pencil' },
+              { id: 'generate', label: 'Generate Post', icon: 'star' },
+              { id: 'scheduled', label: 'Scheduled', icon: 'calendar' },
+              { id: 'posted', label: 'Posted Ideas', icon: 'check-circle' }
+            ].map(tab => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`flex items-center space-x-2 px-4 py-2 rounded-lg font-medium transition-colors ${
+                  activeTab === tab.id
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                <Icon name={tab.icon} size={16} />
+                <span>{tab.label}</span>
+                {tab.id === 'ideas' && <span className="bg-white bg-opacity-20 text-xs px-2 py-1 rounded-full">{activeIdeas.length}</span>}
+                {tab.id === 'scheduled' && <span className="bg-white bg-opacity-20 text-xs px-2 py-1 rounded-full">{activeScheduledPosts.length}</span>}
+                {tab.id === 'posted' && <span className="bg-white bg-opacity-20 text-xs px-2 py-1 rounded-full">{postedIdeas.length}</span>}
+              </button>
+            ))}
+          </div>
+
+          {/* Ideas Tab */}
+          {activeTab === 'ideas' && (
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              <div className="lg:col-span-1">
+                <div className="bg-gray-50 p-6 rounded-lg">
+                  <h3 className="text-lg font-semibold mb-4 flex items-center">
+                    <Icon name="plus" size={20} className="mr-2" />
+                    Add New Idea
+                  </h3>
+                  <textarea
+                    value={newIdea}
+                    onChange={(e) => setNewIdea(e.target.value)}
+                    placeholder="What's your idea? Could be a rough thought, observation, or experience you want to share..."
+                    className="w-full h-32 p-3 border border-gray-300 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    onKeyPress={(e) => {
+                      if (e.key === 'Enter' && e.metaKey) {
+                        addIdea();
+                      }
+                    }}
+                  />
+                  <button
+                    onClick={addIdea}
+                    className="mt-3 w-full bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center"
+                  >
+                    <Icon name="plus" size={16} className="mr-2" />
+                    Add Idea (Cmd+Enter)
+                  </button>
+                </div>
+              </div>
+
+              <div className="lg:col-span-2">
+                <div className="flex justify-between items-center mb-4 flex-wrap gap-2">
+                  <h3 className="text-lg font-semibold">Your Active Ideas ({filteredIdeas.length})</h3>
+                  <div className="flex items-center space-x-2">
+                    <span className="text-sm text-gray-600">Filter:</span>
+                    <select
+                      value={categoryFilter}
+                      onChange={(e) => setCategoryFilter(e.target.value)}
+                      className="px-3 py-1 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="All">All Categories ({activeIdeas.length})</option>
+                      {categories.map(category => (
+                        <option key={category} value={category}>
+                          {category} ({activeIdeas.filter(idea => idea.category === category).length})
+                        </option>
+                      ))}
+                    </select>
+                    <div className="text-sm text-yellow-600">
+                      {starredIdeas.length} starred
+                    </div>
+                  </div>
+                </div>
+                <div className="space-y-3">
+                  {filteredIdeas.map(idea => (
+                    <div key={idea.id} className={`bg-white border rounded-lg p-4 ${idea.starred ? 'border-yellow-300 bg-yellow-50' : 'border-gray-200'}`}>
+                      <div className="flex justify-between items-start mb-2">
+                        <div className="flex-1">
+                          <div className="flex items-center space-x-2 mb-2">
+                            {editingIdeaContent === idea.id ? (
+                              <textarea
+                                defaultValue={idea.content}
+                                className="flex-1 p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                                rows="2"
+                                onBlur={(e) => {
+                                  updateIdeaField(idea.id, 'content', e.target.value);
+                                  setEditingIdeaContent(null);
+                                }}
+                                onKeyPress={(e) => {
+                                  if (e.key === 'Enter' && !e.shiftKey) {
+                                    e.preventDefault();
+                                    updateIdeaField(idea.id, 'content', e.target.value);
+                                    setEditingIdeaContent(null);
+                                  }
+                                }}
+                                autoFocus
+                              />
+                            ) : (
+                              <p
+                                className="text-gray-900 font-medium cursor-pointer hover:bg-gray-100 p-2 rounded flex-1"
+                                onClick={() => setEditingIdeaContent(idea.id)}
+                                title="Click to edit idea content"
+                              >
+                                {idea.content}
+                              </p>
+                            )}
+                          </div>
+                          <p className="text-sm text-gray-500">
+                            Added {new Date(idea.createdAt).toLocaleDateString()}
+                          </p>
+                        </div>
+                        <div className="flex items-center space-x-2 ml-4 flex-wrap">
+                          <select
+                            value={idea.category}
+                            onChange={(e) => updateIdeaPriority(idea.id, e.target.value)}
+                            className={`px-2 py-1 text-xs rounded-full border-0 ${getPriorityColor(idea.category)}`}
+                          >
+                            {categories.map(category => (
+                              <option key={category} value={category}>{category}</option>
+                            ))}
+                          </select>
+                          <button
+                            onClick={() => toggleStarred(idea.id)}
+                            className={`text-xl transition-colors ${idea.starred ? 'text-yellow-500' : 'text-gray-300 hover:text-yellow-400'}`}
+                            title={idea.starred ? 'Remove star' : 'Add star'}
+                          >
+                            {idea.starred ? '★' : '☆'}
+                          </button>
+                          <button
+                            onClick={() => generatePost(idea)}
+                            className="bg-blue-600 text-white px-3 py-1 text-xs rounded hover:bg-blue-700"
+                            title="Generate post"
+                          >
+                            Generate
+                          </button>
+                          <button
+                            onClick={() => setExpandedIdea(expandedIdea === idea.id ? null : idea.id)}
+                            className="text-gray-600 hover:text-gray-800 p-1"
+                            title="Expand/collapse details"
+                          >
+                            {expandedIdea === idea.id ? '▼' : '▶'}
+                          </button>
+                          <button
+                            onClick={() => deleteIdea(idea.id)}
+                            className="text-red-600 hover:text-red-800 p-1"
+                            title="Delete idea"
+                          >
+                            <Icon name="trash-2" size={16} />
+                          </button>
+                        </div>
+                      </div>
+
+                      {expandedIdea === idea.id && (
+                        <div className="mt-4 space-y-3 border-t pt-4">
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Draft Content:</label>
+                            <textarea
+                              value={idea.draft || ''}
+                              onChange={(e) => updateIdeaField(idea.id, 'draft', e.target.value)}
+                              placeholder="Add your draft content or initial thoughts..."
+                              className="w-full h-24 p-2 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Comments/Notes:</label>
+                            <textarea
+                              value={idea.comments || ''}
+                              onChange={(e) => updateIdeaField(idea.id, 'comments', e.target.value)}
+                              placeholder="Add comments, reminders, or additional context..."
+                              className="w-full h-16 p-2 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                  {ideas.length === 0 && (
+                    <div className="text-center py-12 text-gray-500">
+                      <Icon name="pencil" size={48} className="mx-auto mb-4 opacity-50" />
+                      <p>No ideas yet. Add your first idea to get started!</p>
+                    </div>
+                  )}
+
+                  {filteredIdeas.length === 0 && activeIdeas.length > 0 && (
+                    <div className="text-center py-12 text-gray-500">
+                      <p>No active ideas in this category.</p>
+                      <button
+                        onClick={() => setCategoryFilter('All')}
+                        className="mt-2 text-blue-600 hover:text-blue-800"
+                      >
+                        Show all active ideas
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Generate Post Tab */}
+          {activeTab === 'generate' && (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div>
+                <h3 className="text-lg font-semibold mb-4">Select Starred Idea</h3>
+                {starredIdeas.length > 0 ? (
+                  <div className="mb-4">
+                    <select
+                      value={selectedIdea?.id || ''}
+                      onChange={(e) => {
+                        const idea = starredIdeas.find(i => i.id === parseInt(e.target.value));
+                        if (idea) generatePost(idea);
+                      }}
+                      className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="">Choose a starred idea to generate post...</option>
+                      {starredIdeas.map(idea => (
+                        <option key={idea.id} value={idea.id}>
+                          [{idea.category}] {idea.content.slice(0, 60)}...
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                ) : (
+                  <div className="bg-yellow-50 border border-yellow-200 p-4 rounded-lg mb-4">
+                    <p className="text-yellow-800 font-medium">No starred ideas yet!</p>
+                    <p className="text-yellow-700 text-sm mt-1">
+                      Go to the Ideas Bank and star some ideas to see them here.
+                    </p>
+                    <button
+                      onClick={() => setActiveTab('ideas')}
+                      className="mt-2 text-blue-600 hover:text-blue-800 font-medium"
+                    >
+                      Go to Ideas Bank →
+                    </button>
+                  </div>
+                )}
+
+                {selectedIdea && (
+                  <>
+                    <div className="bg-gray-50 p-4 rounded-lg mb-4">
+                      <div className="flex items-center space-x-2 mb-2">
+                        <span className="text-xl">★</span>
+                        <span className={`px-2 py-1 text-xs rounded-full ${getPriorityColor(selectedIdea.category)}`}>
+                          {selectedIdea.category}
+                        </span>
+                      </div>
+                      <p className="text-gray-900">{selectedIdea.content}</p>
+                      {selectedIdea.draft && (
+                        <div className="mt-2 p-2 bg-white rounded border-l-4 border-blue-400">
+                          <p className="text-sm text-gray-600 font-medium">Draft:</p>
+                          <p className="text-sm text-gray-800">{selectedIdea.draft}</p>
+                        </div>
+                      )}
+                    </div>
+
+                    <div>
+                      <h3 className="text-lg font-semibold mb-4">Schedule Post</h3>
+                      <input
+                        type="datetime-local"
+                        value={scheduleDate}
+                        onChange={(e) => setScheduleDate(e.target.value)}
+                        className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 mb-4"
+                      />
+                      <button
+                        onClick={schedulePost}
+                        disabled={!generatedPost || !scheduleDate}
+                        className="w-full bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
+                      >
+                        <Icon name="send" size={16} className="mr-2" />
+                        Schedule Post
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+
+              <div>
+                <h3 className="text-lg font-semibold mb-4">Generated Post</h3>
+                {selectedIdea && (
+                  <div className="flex space-x-2 mb-4">
+                    <button
+                      onClick={() => generatePost(selectedIdea)}
+                      className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+                    >
+                      Generate New Version
+                    </button>
+                    <button
+                      onClick={() => setGeneratedPost('')}
+                      className="bg-gray-500 text-white px-4 py-2 rounded-lg hover:bg-gray-600 transition-colors"
+                    >
+                      Write from Scratch
+                    </button>
+                  </div>
+                )}
+                <textarea
+                  value={generatedPost}
+                  onChange={(e) => setGeneratedPost(e.target.value)}
+                  placeholder="Generated post will appear here... Click on an idea to generate, or write your own post from scratch."
+                  className="w-full h-80 p-4 border border-gray-300 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                <div className="flex justify-between items-center mt-2">
+                  <div className="text-sm text-gray-600">
+                    {generatedPost.length} characters
+                    {generatedPost.length > 3000 && (
+                      <span className="text-red-600 ml-2">LinkedIn limit: 3000 chars</span>
+                    )}
+                  </div>
+                  {generatedPost && (
+                    <button
+                      onClick={() => copyToClipboard(generatedPost)}
+                      className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                    >
+                      Copy to Clipboard
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Scheduled Posts Tab */}
+          {activeTab === 'scheduled' && (
+            <div>
+              <div className="flex justify-between items-center mb-6">
+                <h3 className="text-lg font-semibold">Scheduled Posts ({activeScheduledPosts.length})</h3>
+              </div>
+              <div className="space-y-4">
+                {activeScheduledPosts.map(post => (
+                  <div key={post.id} className="bg-white border border-gray-200 rounded-lg p-6">
+                    <div className="flex justify-between items-start mb-4 flex-wrap gap-2">
+                      <div className="flex items-center space-x-2">
+                        <Icon name="clock" size={16} className="text-blue-600" />
+                        {editingSchedule === post.id ? (
+                          <input
+                            type="datetime-local"
+                            defaultValue={post.scheduledFor}
+                            className="px-2 py-1 border border-gray-300 rounded text-sm"
+                            onBlur={(e) => {
+                              updateScheduledPost(post.id, { scheduledFor: e.target.value });
+                              setEditingSchedule(null);
+                            }}
+                            autoFocus
+                          />
+                        ) : (
+                          <span
+                            className="font-medium text-gray-900 cursor-pointer hover:text-blue-600"
+                            onClick={() => setEditingSchedule(post.id)}
+                            title="Click to edit schedule"
+                          >
+                            {new Date(post.scheduledFor).toLocaleString()}
+                          </span>
+                        )}
+                        <span className="px-2 py-1 text-xs rounded-full text-blue-600 bg-blue-100">
+                          scheduled
+                        </span>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <button
+                          onClick={() => moveIdeaBackToQueue(post.id)}
+                          className="text-gray-600 hover:text-gray-800 px-2 py-1 text-xs border border-gray-600 rounded hover:bg-gray-50"
+                        >
+                          ← Back to Ideas
+                        </button>
+                        <button
+                          onClick={() => markAsPosted(post.id)}
+                          className="text-green-600 hover:text-green-800 px-2 py-1 text-xs border border-green-600 rounded hover:bg-green-50"
+                        >
+                          ✓ Mark Posted
+                        </button>
+                        <button
+                          onClick={() => copyToClipboard(post.content)}
+                          className="text-blue-600 hover:text-blue-800 px-2 py-1 text-xs border border-blue-600 rounded hover:bg-blue-50"
+                        >
+                          Copy
+                        </button>
+                        <button
+                          onClick={() => deleteScheduledPost(post.id)}
+                          className="text-red-600 hover:text-red-800 p-1"
+                        >
+                          <Icon name="trash-2" size={16} />
+                        </button>
+                      </div>
+                    </div>
+                    <div className="bg-gray-50 p-4 rounded-lg">
+                      {editingPost === post.id ? (
+                        <div>
+                          <textarea
+                            defaultValue={post.content}
+                            className="w-full h-40 p-3 border border-gray-300 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            onBlur={(e) => {
+                              updateScheduledPost(post.id, { content: e.target.value });
+                              setEditingPost(null);
+                            }}
+                            autoFocus
+                          />
+                        </div>
+                      ) : (
+                        <pre
+                          className="whitespace-pre-wrap text-sm text-gray-900 cursor-pointer hover:bg-gray-100 p-2 rounded font-sans"
+                          onClick={() => setEditingPost(post.id)}
+                          title="Click to edit post content"
+                        >
+                          {post.content}
+                        </pre>
+                      )}
+                    </div>
+                    {post.status === 'scheduled' && new Date(post.scheduledFor) < new Date() && (
+                      <div className="mt-3 p-2 bg-yellow-50 border border-yellow-200 rounded text-sm text-yellow-800">
+                        This post is overdue. Did you publish it manually?
+                        <button
+                          onClick={() => markAsPosted(post.id)}
+                          className="ml-2 text-green-600 hover:text-green-800 font-medium"
+                        >
+                          Mark as Posted
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                ))}
+
+                {scheduledPosts.length === 0 && (
+                  <div className="text-center py-12 text-gray-500">
+                    <Icon name="calendar" size={48} className="mx-auto mb-4 opacity-50" />
+                    <p>No scheduled posts yet.</p>
+                    <button
+                      onClick={() => setActiveTab('generate')}
+                      className="mt-3 text-blue-600 hover:text-blue-800 font-medium"
+                    >
+                      Generate your first post →
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Posted Ideas Tab */}
+          {activeTab === 'posted' && (
+            <div>
+              <div className="flex justify-between items-center mb-6 flex-wrap gap-2">
+                <h3 className="text-lg font-semibold">Posted Ideas ({filteredPostedIdeas.length})</h3>
+                <div className="flex items-center space-x-2">
+                  <span className="text-sm text-gray-600">Filter:</span>
+                  <select
+                    value={postedCategoryFilter}
+                    onChange={(e) => setPostedCategoryFilter(e.target.value)}
+                    className="px-3 py-1 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="All">All Categories ({postedIdeas.length})</option>
+                    {categories.map(category => (
+                      <option key={category} value={category}>
+                        {category} ({postedIdeas.filter(idea => idea.category === category).length})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                {filteredPostedIdeas.map(postedIdea => (
+                  <div key={postedIdea.id} className="bg-white border border-gray-200 rounded-lg p-4">
+                    <div className="flex justify-between items-start">
+                      <div className="flex-1">
+                        <div className="flex items-center space-x-2 mb-2">
+                          <Icon name="check-circle" size={16} className="text-green-600" />
+                          <span className={`px-2 py-1 text-xs rounded-full ${getPriorityColor(postedIdea.category)}`}>
+                            {postedIdea.category}
+                          </span>
+                          <span className="text-sm text-gray-500">
+                            Posted: {new Date(postedIdea.postedAt).toLocaleDateString()}
+                          </span>
+                        </div>
+
+                        <div className="cursor-pointer" onClick={() => setExpandedPostedIdea(expandedPostedIdea === postedIdea.id ? null : postedIdea.id)}>
+                          <p className="text-gray-900 font-medium mb-1">
+                            {postedIdea.ideaContent}
+                          </p>
+                          <p className="text-sm text-gray-500">
+                            {expandedPostedIdea === postedIdea.id ? 'Click to collapse' : 'Click to view posted content...'}
+                          </p>
+                        </div>
+
+                        {expandedPostedIdea === postedIdea.id && (
+                          <div className="mt-4 space-y-4 border-t pt-4">
+                            <div>
+                              <h4 className="font-medium text-gray-900 mb-2">Posted Content:</h4>
+                              <div className="bg-green-50 p-4 rounded-lg border-l-4 border-green-400">
+                                <pre className="whitespace-pre-wrap text-sm text-gray-900 font-sans">
+                                  {postedIdea.postedContent}
+                                </pre>
+                              </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm text-gray-600 bg-gray-50 p-3 rounded">
+                              <div>
+                                <span className="font-medium">Created:</span><br />
+                                {new Date(postedIdea.createdAt).toLocaleDateString()}
+                              </div>
+                              <div>
+                                <span className="font-medium">Scheduled:</span><br />
+                                {new Date(postedIdea.scheduledFor).toLocaleString()}
+                              </div>
+                              <div>
+                                <span className="font-medium">Posted:</span><br />
+                                {new Date(postedIdea.postedAt).toLocaleString()}
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="flex items-center space-x-2 ml-4">
+                        <button
+                          onClick={() => setExpandedPostedIdea(expandedPostedIdea === postedIdea.id ? null : postedIdea.id)}
+                          className="text-gray-600 hover:text-gray-800 p-1"
+                        >
+                          {expandedPostedIdea === postedIdea.id ? '▼' : '▶'}
+                        </button>
+                        <button
+                          onClick={() => copyToClipboard(postedIdea.postedContent)}
+                          className="text-blue-600 hover:text-blue-800 px-2 py-1 text-xs border border-blue-600 rounded hover:bg-blue-50"
+                        >
+                          Copy
+                        </button>
+                        <button
+                          onClick={() => {
+                            setPostedIdeas(postedIdeas.filter(p => p.id !== postedIdea.id));
+                          }}
+                          className="text-red-600 hover:text-red-800 p-1"
+                        >
+                          <Icon name="trash-2" size={16} />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+
+                {postedIdeas.length === 0 && (
+                  <div className="text-center py-12 text-gray-500">
+                    <Icon name="check-circle" size={48} className="mx-auto mb-4 opacity-50" />
+                    <p>No posted ideas yet.</p>
+                    <p className="text-sm mt-2">Ideas will appear here once they're marked as posted.</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Footer */}
+          <div className="mt-12 pt-6 border-t text-center text-sm text-gray-500">
+            <p>Data is saved automatically in your browser. Use Export/Import to backup your data.</p>
+          </div>
+        </div>
+      );
+    };
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<LinkedInContentSystem />);
+  </script>
+</body>
+</html>
