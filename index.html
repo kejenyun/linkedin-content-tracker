@@ -552,53 +552,61 @@ What's stopping you from making this change?
                             Added {new Date(idea.createdAt).toLocaleDateString()}
                           </p>
                         </div>
-                        <div className="flex items-center space-x-2 ml-4 flex-wrap gap-1">
-                          <select
-                            value={idea.category}
-                            onChange={(e) => updateIdeaPriority(idea.id, e.target.value)}
-                            className={`px-2 py-1 text-xs rounded-full border-0 ${getPriorityColor(idea.category)}`}
-                          >
-                            {categories.map(category => (
-                              <option key={category} value={category}>{category}</option>
-                            ))}
-                          </select>
-                          <select
-                            value={idea.audience || audiences[0]}
-                            onChange={(e) => updateIdeaAudience(idea.id, e.target.value)}
-                            className="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-700"
-                          >
-                            {audiences.map(audience => (
-                              <option key={audience} value={audience}>{audience}</option>
-                            ))}
-                          </select>
-                          <button
-                            onClick={() => toggleStarred(idea.id)}
-                            className={`text-xl transition-colors ${idea.starred ? 'text-yellow-500' : 'text-gray-300 hover:text-yellow-400'}`}
-                            title={idea.starred ? 'Remove star' : 'Add star'}
-                          >
-                            {idea.starred ? '★' : '☆'}
-                          </button>
-                          <button
-                            onClick={() => generatePost(idea)}
-                            className="bg-blue-600 text-white px-3 py-1 text-xs rounded hover:bg-blue-700"
-                            title="Generate post"
-                          >
-                            Generate
-                          </button>
-                          <button
-                            onClick={() => setExpandedIdea(expandedIdea === idea.id ? null : idea.id)}
-                            className="text-gray-600 hover:text-gray-800 p-1"
-                            title="Expand/collapse details"
-                          >
-                            {expandedIdea === idea.id ? '▼' : '▶'}
-                          </button>
-                          <button
-                            onClick={() => deleteIdea(idea.id)}
-                            className="text-red-600 hover:text-red-800 p-1"
-                            title="Delete idea"
-                          >
-                            <Icon name="trash-2" size={16} />
-                          </button>
+                        <div className="flex items-start space-x-2 ml-4 shrink-0">
+                          <div className="flex flex-col gap-1">
+                            <select
+                              value={idea.category}
+                              onChange={(e) => updateIdeaPriority(idea.id, e.target.value)}
+                              className={`px-2 py-1 text-xs rounded-full border-0 ${getPriorityColor(idea.category)}`}
+                            >
+                              {categories.map(category => (
+                                <option key={category} value={category}>{category}</option>
+                              ))}
+                            </select>
+                            <select
+                              value={idea.audience || audiences[0]}
+                              onChange={(e) => updateIdeaAudience(idea.id, e.target.value)}
+                              className="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-700"
+                            >
+                              {audiences.map(audience => (
+                                <option key={audience} value={audience}>{audience}</option>
+                              ))}
+                            </select>
+                          </div>
+                          <div className="flex flex-col gap-1">
+                            <div className="flex items-center space-x-1">
+                              <button
+                                onClick={() => toggleStarred(idea.id)}
+                                className={`text-xl transition-colors ${idea.starred ? 'text-yellow-500' : 'text-gray-300 hover:text-yellow-400'}`}
+                                title={idea.starred ? 'Remove star' : 'Add star'}
+                              >
+                                {idea.starred ? '★' : '☆'}
+                              </button>
+                              <button
+                                onClick={() => generatePost(idea)}
+                                className="bg-blue-600 text-white px-3 py-1 text-xs rounded hover:bg-blue-700"
+                                title="Generate post"
+                              >
+                                Generate
+                              </button>
+                            </div>
+                            <div className="flex items-center space-x-1">
+                              <button
+                                onClick={() => setExpandedIdea(expandedIdea === idea.id ? null : idea.id)}
+                                className="text-gray-600 hover:text-gray-800 p-1 text-xs"
+                                title="Expand/collapse details"
+                              >
+                                {expandedIdea === idea.id ? '▼ Less' : '▶ More'}
+                              </button>
+                              <button
+                                onClick={() => deleteIdea(idea.id)}
+                                className="text-red-600 hover:text-red-800 p-1"
+                                title="Delete idea"
+                              >
+                                <Icon name="trash-2" size={14} />
+                              </button>
+                            </div>
+                          </div>
                         </div>
                       </div>
 
