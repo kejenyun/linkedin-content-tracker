@@ -72,7 +72,9 @@
       });
 
       const starredIdeas = activeIdeas.filter(idea => idea.starred);
-      const activeScheduledPosts = scheduledPosts.filter(post => post.status !== 'posted');
+      const activeScheduledPosts = scheduledPosts
+        .filter(post => post.status !== 'posted')
+        .sort((a, b) => new Date(a.scheduledFor) - new Date(b.scheduledFor));
       const filteredPostedIdeas = postedCategoryFilter === 'All'
         ? postedIdeas
         : postedIdeas.filter(idea => idea.category === postedCategoryFilter);
