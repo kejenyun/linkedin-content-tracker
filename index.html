@@ -90,11 +90,14 @@
 
       const categories = topics;
 
+      const [sourceFilter, setSourceFilter] = useState('All');
+
       const activeIdeas = ideas.filter(idea => idea.status !== 'posted');
       const filteredIdeas = activeIdeas.filter(idea => {
         const matchesCategory = categoryFilter === 'All' || idea.category === categoryFilter;
         const matchesAudience = audienceFilter === 'All' || idea.audience === audienceFilter;
-        return matchesCategory && matchesAudience;
+        const matchesSource = sourceFilter === 'All' || (sourceFilter === 'Agent' ? idea.source === 'agent' : idea.source !== 'agent');
+        return matchesCategory && matchesAudience && matchesSource;
       });
 
       const starredIdeas = activeIdeas.filter(idea => idea.starred);
@@ -696,6 +699,15 @@ What's stopping you from making this change?
                         </option>
                       ))}
                     </select>
+                    <select
+                      value={sourceFilter}
+                      onChange={(e) => setSourceFilter(e.target.value)}
+                      className="px-3 py-1 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="All">All Sources</option>
+                      <option value="Human">Human</option>
+                      <option value="Agent">Agent</option>
+                    </select>
                     <div className="text-sm text-yellow-600">
                       {starredIdeas.length} starred
                     </div>
@@ -703,7 +715,7 @@ What's stopping you from making this change?
                 </div>
                 <div className="space-y-3">
                   {filteredIdeas.map(idea => (
-                    <div key={idea.id} className={`bg-white border rounded-lg p-4 ${idea.starred ? 'border-yellow-300 bg-yellow-50' : 'border-gray-200'}`}>
+                    <div key={idea.id} className={`bg-white border rounded-lg p-4 ${idea.source === 'agent' ? 'border-purple-300 bg-purple-50' : idea.starred ? 'border-yellow-300 bg-yellow-50' : 'border-gray-200'}`}>
                       <div className="flex justify-between items-start mb-2">
                         <div className="flex-1">
                           <div className="flex items-center space-x-2 mb-2">
@@ -737,7 +749,8 @@ What's stopping you from making this change?
                           </div>
                           <p className="text-sm text-gray-500">
                             Added {new Date(idea.createdAt).toLocaleDateString()}
-                            {idea.contributor && <span className="ml-2 px-2 py-0.5 bg-indigo-100 text-indigo-700 rounded-full text-xs">by {idea.contributor}</span>}
+                            {idea.source === 'agent' && <span className="ml-2 px-2 py-0.5 bg-purple-100 text-purple-700 rounded-full text-xs font-medium">🤖 Agent</span>}
+                            {idea.contributor && idea.source !== 'agent' && <span className="ml-2 px-2 py-0.5 bg-indigo-100 text-indigo-700 rounded-full text-xs">by {idea.contributor}</span>}
                           </p>
                         </div>
                         <div className="flex items-start space-x-2 ml-4 shrink-0">
@@ -818,6 +831,36 @@ What's stopping you from making this change?
                               className="w-full h-16 p-2 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
                             />
                           </div>
+                          {idea.sources && idea.sources.length > 0 && (
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-2">Sources ({idea.sources.length}):</label>
+                              <div className="space-y-2">
+                                {(Array.isArray(idea.sources) ? idea.sources : Object.values(idea.sources)).map((src, idx) => (
+                                  <div key={idx} className="flex items-start gap-2 p-2 bg-gray-50 rounded border border-gray-200">
+                                    <span className={`shrink-0 px-2 py-0.5 rounded text-xs font-medium ${
+                                      src.type === 'news' ? 'bg-blue-100 text-blue-700' :
+                                      src.type === 'reddit' ? 'bg-orange-100 text-orange-700' :
+                                      src.type === 'warn' ? 'bg-red-100 text-red-700' :
+                                      src.type === 'linkedin' ? 'bg-sky-100 text-sky-700' :
+                                      'bg-gray-100 text-gray-700'
+                                    }`}>
+                                      {src.type === 'news' ? '📰 News' : src.type === 'reddit' ? '💬 Reddit' : src.type === 'warn' ? '⚠️ WARN' : src.type === 'linkedin' ? '💼 LinkedIn' : src.type}
+                                    </span>
+                                    <div className="flex-1 min-w-0">
+                                      {src.link ? (
+                                        <a href={src.link} target="_blank" rel="noopener noreferrer" className="text-sm font-medium text-blue-600 hover:text-blue-800 hover:underline">
+                                          {src.title || 'View source'}
+                                        </a>
+                                      ) : (
+                                        <span className="text-sm font-medium text-gray-900">{src.title}</span>
+                                      )}
+                                      {src.snippet && <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">{src.snippet}</p>}
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>
