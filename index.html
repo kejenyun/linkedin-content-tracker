@@ -9,6 +9,24 @@
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-database-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyBClelPfksWgYRO6oTd721hvWmItfIaFBY",
+      authDomain: "linkedin-content-tracker.firebaseapp.com",
+      databaseURL: "https://linkedin-content-tracker-default-rtdb.firebaseio.com",
+      projectId: "linkedin-content-tracker",
+      storageBucket: "linkedin-content-tracker.firebasestorage.app",
+      messagingSenderId: "743006715017",
+      appId: "1:743006715017:web:f660d4c480487c14f29a58"
+    };
+    const firebaseApp = firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+    const auth = firebase.auth();
+    const googleProvider = new firebase.auth.GoogleAuthProvider();
+  </script>
   <style>
     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
   </style>
@@ -55,12 +73,19 @@
       const [showSettings, setShowSettings] = useState(false);
       const [newTopic, setNewTopic] = useState('');
       const [newAudience, setNewAudience] = useState('');
+      const [firebaseReady, setFirebaseReady] = useState(false);
+      const [contributorName, setContributorName] = useState('');
+      const [currentUser, setCurrentUser] = useState(null);
+      const [authLoading, setAuthLoading] = useState(true);
 
       const defaultTopics = ['User Pain Points', 'Market Trend', 'Good Practices', 'Professional Insights', 'Random'];
       const defaultAudiences = ['Currently Unemployed', 'Employed & Seeking', 'Career Changers', 'General'];
 
       const [topics, setTopics] = useState(defaultTopics);
       const [audiences, setAudiences] = useState(defaultAudiences);
+
+      // Track whether state changes come from Firebase (to avoid write-back loops)
+      const fromFirebase = React.useRef(false);
 
       const categories = topics;
 
@@ -79,40 +104,143 @@
         ? postedIdeas
         : postedIdeas.filter(idea => idea.category === postedCategoryFilter);
 
-      // Load data from localStorage
+      // Google Auth — listen for auth state
       useEffect(() => {
-        const savedIdeas = localStorage.getItem('linkedin-ideas');
-        const savedPosts = localStorage.getItem('linkedin-scheduled');
-        const savedPostedIdeas = localStorage.getItem('linkedin-posted-ideas');
-        const savedTopics = localStorage.getItem('linkedin-topics');
-        const savedAudiences = localStorage.getItem('linkedin-audiences');
-
-        if (savedIdeas) setIdeas(JSON.parse(savedIdeas));
-        if (savedPosts) setScheduledPosts(JSON.parse(savedPosts));
-        if (savedPostedIdeas) setPostedIdeas(JSON.parse(savedPostedIdeas));
-        if (savedTopics) setTopics(JSON.parse(savedTopics));
-        if (savedAudiences) setAudiences(JSON.parse(savedAudiences));
+        const unsubscribe = auth.onAuthStateChanged((user) => {
+          setCurrentUser(user);
+          if (user) {
+            setContributorName(user.displayName || user.email.split('@')[0]);
+          }
+          setAuthLoading(false);
+        });
+        return () => unsubscribe();
       }, []);
 
-      // Save data to localStorage
+      const signIn = () => {
+        auth.signInWithPopup(googleProvider).catch((error) => {
+          alert('Sign in failed: ' + error.message);
+        });
+      };
+
+      const signOut = () => {
+        auth.signOut();
+      };
+
+      // Firebase real-time listeners — load data and stay in sync
       useEffect(() => {
-        localStorage.setItem('linkedin-ideas', JSON.stringify(ideas));
+        const refs = {
+          ideas: db.ref('ideas'),
+          scheduledPosts: db.ref('scheduledPosts'),
+          postedIdeas: db.ref('postedIdeas'),
+          topics: db.ref('topics'),
+          audiences: db.ref('audiences')
+        };
+
+        // Helper: migrate localStorage data to Firebase if Firebase is empty
+        const migrateIfNeeded = (firebaseData, localKey, fbRef, defaultVal) => {
+          if (!firebaseData) {
+            const localData = localStorage.getItem(localKey);
+            if (localData) {
+              const parsed = JSON.parse(localData);
+              if (parsed && (Array.isArray(parsed) ? parsed.length > 0 : true)) {
+                fbRef.set(parsed);
+                return parsed;
+              }
+            }
+            return defaultVal;
+          }
+          return Array.isArray(firebaseData) ? firebaseData : Object.values(firebaseData || {});
+        };
+
+        refs.ideas.on('value', (snapshot) => {
+          fromFirebase.current = true;
+          const data = migrateIfNeeded(snapshot.val(), 'linkedin-ideas', refs.ideas, []);
+          setIdeas(Array.isArray(data) ? data : Object.values(data || {}));
+          fromFirebase.current = false;
+          setFirebaseReady(true);
+        });
+
+        refs.scheduledPosts.on('value', (snapshot) => {
+          fromFirebase.current = true;
+          const data = migrateIfNeeded(snapshot.val(), 'linkedin-scheduled', refs.scheduledPosts, []);
+          setScheduledPosts(Array.isArray(data) ? data : Object.values(data || {}));
+          fromFirebase.current = false;
+        });
+
+        refs.postedIdeas.on('value', (snapshot) => {
+          fromFirebase.current = true;
+          const data = migrateIfNeeded(snapshot.val(), 'linkedin-posted-ideas', refs.postedIdeas, []);
+          setPostedIdeas(Array.isArray(data) ? data : Object.values(data || {}));
+          fromFirebase.current = false;
+        });
+
+        refs.topics.on('value', (snapshot) => {
+          fromFirebase.current = true;
+          const data = snapshot.val();
+          if (data) {
+            setTopics(Array.isArray(data) ? data : Object.values(data));
+          } else {
+            const localTopics = localStorage.getItem('linkedin-topics');
+            if (localTopics) {
+              const parsed = JSON.parse(localTopics);
+              refs.topics.set(parsed);
+              setTopics(parsed);
+            } else {
+              refs.topics.set(defaultTopics);
+              setTopics(defaultTopics);
+            }
+          }
+          fromFirebase.current = false;
+        });
+
+        refs.audiences.on('value', (snapshot) => {
+          fromFirebase.current = true;
+          const data = snapshot.val();
+          if (data) {
+            setAudiences(Array.isArray(data) ? data : Object.values(data));
+          } else {
+            const localAudiences = localStorage.getItem('linkedin-audiences');
+            if (localAudiences) {
+              const parsed = JSON.parse(localAudiences);
+              refs.audiences.set(parsed);
+              setAudiences(parsed);
+            } else {
+              refs.audiences.set(defaultAudiences);
+              setAudiences(defaultAudiences);
+            }
+          }
+          fromFirebase.current = false;
+        });
+
+        return () => {
+          Object.values(refs).forEach(ref => ref.off());
+        };
+      }, []);
+
+      // Save to Firebase when state changes (skip if change came from Firebase listener)
+      useEffect(() => {
+        if (!firebaseReady || fromFirebase.current) return;
+        db.ref('ideas').set(ideas);
       }, [ideas]);
 
       useEffect(() => {
-        localStorage.setItem('linkedin-scheduled', JSON.stringify(scheduledPosts));
+        if (!firebaseReady || fromFirebase.current) return;
+        db.ref('scheduledPosts').set(scheduledPosts);
       }, [scheduledPosts]);
 
       useEffect(() => {
-        localStorage.setItem('linkedin-posted-ideas', JSON.stringify(postedIdeas));
+        if (!firebaseReady || fromFirebase.current) return;
+        db.ref('postedIdeas').set(postedIdeas);
       }, [postedIdeas]);
 
       useEffect(() => {
-        localStorage.setItem('linkedin-topics', JSON.stringify(topics));
+        if (!firebaseReady || fromFirebase.current) return;
+        db.ref('topics').set(topics);
       }, [topics]);
 
       useEffect(() => {
-        localStorage.setItem('linkedin-audiences', JSON.stringify(audiences));
+        if (!firebaseReady || fromFirebase.current) return;
+        db.ref('audiences').set(audiences);
       }, [audiences]);
 
       const addTopic = () => {
@@ -158,7 +286,8 @@
             createdAt: new Date().toISOString(),
             draft: '',
             comments: '',
-            starred: false
+            starred: false,
+            contributor: contributorName || 'Unknown'
           };
           setIdeas([idea, ...ideas]);
           setNewIdea('');
@@ -266,7 +395,8 @@ What's stopping you from making this change?
             content: generatedPost,
             scheduledFor: scheduleDate,
             status: 'scheduled',
-            createdAt: new Date().toISOString()
+            createdAt: new Date().toISOString(),
+            contributor: contributorName || 'Unknown'
           };
 
           setScheduledPosts([...scheduledPosts, scheduledPost]);
@@ -305,7 +435,8 @@ What's stopping you from making this change?
               postedAt: new Date().toISOString(),
               createdAt: originalIdea.createdAt,
               draft: originalIdea.draft,
-              comments: originalIdea.comments
+              comments: originalIdea.comments,
+              contributor: originalIdea.contributor || post.contributor || 'Unknown'
             };
 
             setPostedIdeas(prev => [postedIdea, ...prev]);
@@ -369,9 +500,11 @@ What's stopping you from making this change?
           reader.onload = (e) => {
             try {
               const data = JSON.parse(e.target.result);
-              if (data.ideas) setIdeas(data.ideas);
-              if (data.scheduledPosts) setScheduledPosts(data.scheduledPosts);
-              if (data.postedIdeas) setPostedIdeas(data.postedIdeas);
+              if (data.ideas) db.ref('ideas').set(data.ideas);
+              if (data.scheduledPosts) db.ref('scheduledPosts').set(data.scheduledPosts);
+              if (data.postedIdeas) db.ref('postedIdeas').set(data.postedIdeas);
+              if (data.topics) db.ref('topics').set(data.topics);
+              if (data.audiences) db.ref('audiences').set(data.audiences);
               alert('Data imported successfully!');
             } catch (error) {
               alert('Error importing data: ' + error.message);
@@ -392,6 +525,30 @@ What's stopping you from making this change?
         }
       };
 
+      if (authLoading) {
+        return (
+          <div className="max-w-md mx-auto mt-20 p-8 text-center">
+            <p className="text-gray-500 text-lg">Loading...</p>
+          </div>
+        );
+      }
+
+      if (!currentUser) {
+        return (
+          <div className="max-w-md mx-auto mt-20 p-8 bg-white rounded-xl shadow-lg text-center">
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">LinkedIn Content Tracker</h2>
+            <p className="text-gray-600 mb-6">Sign in to access your shared content workspace.</p>
+            <button
+              onClick={signIn}
+              className="w-full px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium flex items-center justify-center gap-2 mx-auto"
+            >
+              <svg className="w-5 h-5" viewBox="0 0 24 24"><path fill="#fff" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z"/><path fill="#fff" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#fff" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#fff" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+              Sign in with Google
+            </button>
+          </div>
+        );
+      }
+
       return (
         <div className="max-w-6xl mx-auto p-6 bg-white min-h-screen">
           <div className="mb-8">
@@ -401,6 +558,11 @@ What's stopping you from making this change?
                 <p className="text-gray-600">Capture ideas → Generate posts → Schedule publishing</p>
               </div>
               <div className="flex items-center space-x-2">
+                <span className="px-3 py-1.5 bg-indigo-50 text-indigo-700 rounded-full text-sm font-medium flex items-center gap-2">
+                  {currentUser?.photoURL && <img src={currentUser.photoURL} className="w-5 h-5 rounded-full" />}
+                  {contributorName}
+                  <button onClick={signOut} className="text-indigo-400 hover:text-indigo-600 ml-1" title="Sign out">&times;</button>
+                </span>
                 <button
                   onClick={() => setShowSettings(true)}
                   className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 text-sm"
@@ -552,6 +714,7 @@ What's stopping you from making this change?
                           </div>
                           <p className="text-sm text-gray-500">
                             Added {new Date(idea.createdAt).toLocaleDateString()}
+                            {idea.contributor && <span className="ml-2 px-2 py-0.5 bg-indigo-100 text-indigo-700 rounded-full text-xs">by {idea.contributor}</span>}
                           </p>
                         </div>
                         <div className="flex items-start space-x-2 ml-4 shrink-0">
@@ -826,6 +989,7 @@ What's stopping you from making this change?
                         <span className="px-2 py-1 text-xs rounded-full text-blue-600 bg-blue-100">
                           scheduled
                         </span>
+                        {post.contributor && <span className="px-2 py-1 text-xs rounded-full bg-indigo-100 text-indigo-700">by {post.contributor}</span>}
                       </div>
                       <div className="flex items-center space-x-2 flex-wrap gap-1">
                         <button
@@ -948,6 +1112,7 @@ What's stopping you from making this change?
                           <span className="text-sm text-gray-500">
                             Posted: {new Date(postedIdea.postedAt).toLocaleDateString()}
                           </span>
+                          {postedIdea.contributor && <span className="px-2 py-0.5 text-xs rounded-full bg-indigo-100 text-indigo-700">by {postedIdea.contributor}</span>}
                         </div>
 
                         <div className="cursor-pointer" onClick={() => setExpandedPostedIdea(expandedPostedIdea === postedIdea.id ? null : postedIdea.id)}>
