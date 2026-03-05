@@ -939,17 +939,17 @@ Return ONLY the JSON array, no other text.`
                                 Generate
                               </button>
                             </div>
-                            <div className="flex items-center space-x-1">
+                            <div className="flex items-center space-x-2">
                               <button
                                 onClick={() => setExpandedIdea(expandedIdea === idea.id ? null : idea.id)}
-                                className="text-gray-600 hover:text-gray-800 p-1 text-xs"
+                                className="text-gray-600 hover:text-gray-800 px-2 py-1 text-xs border border-gray-300 rounded hover:bg-gray-50"
                                 title="Expand/collapse details"
                               >
                                 {expandedIdea === idea.id ? '▼ Less' : '▶ More'}
                               </button>
                               <button
                                 onClick={() => deleteIdea(idea.id)}
-                                className="text-red-600 hover:text-red-800 p-1"
+                                className="text-red-500 hover:text-red-700 px-2 py-1 text-xs border border-red-300 rounded hover:bg-red-50"
                                 title="Delete idea"
                               >
                                 <Icon name="trash-2" size={14} />
