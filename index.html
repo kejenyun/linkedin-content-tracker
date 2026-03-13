@@ -165,7 +165,10 @@
       };
 
       // Firebase real-time listeners — load data and stay in sync
+      // Only connect after auth is ready (rules require authentication)
       useEffect(() => {
+        if (!currentUser) return;
+
         const refs = {
           ideas: db.ref('ideas'),
           scheduledPosts: db.ref('scheduledPosts'),
@@ -288,7 +291,7 @@
         return () => {
           Object.values(refs).forEach(ref => ref.off());
         };
-      }, []);
+      }, [currentUser]);
 
       // Save to Firebase when state changes (skip if change came from Firebase listener)
       useEffect(() => {
