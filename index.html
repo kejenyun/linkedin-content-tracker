@@ -132,11 +132,21 @@
         return matchesCategory && matchesAudience;
       });
 
+      // Allowed users — only these emails can access the app
+      const ALLOWED_EMAILS = ['maggie@getlumira.ai'];
+
       // Google Auth — listen for auth state
       useEffect(() => {
         const unsubscribe = auth.onAuthStateChanged((user) => {
+          if (user && !ALLOWED_EMAILS.includes(user.email)) {
+            console.warn('Unauthorized user:', user.email);
+            auth.signOut();
+            alert('Access denied. This app is restricted to authorized users only.');
+            return;
+          }
           setCurrentUser(user);
           if (user) {
+            console.log('Authenticated UID:', user.uid);
             setContributorName(user.displayName || user.email.split('@')[0]);
           }
           setAuthLoading(false);
